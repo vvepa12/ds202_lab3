@@ -1,0 +1,101 @@
+---
+title: "Lab3"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r }
+library(dplyr)
+dat <- readxl::read_xls('C:/Users/varun/Desktop/GSS.xls')
+dat <- dat %>% rename(HighestYearCompleted ='Highest year of school completed') 
+dat <- dat %>% rename(sex='Respondents sex',partyAffiliation='Political party affiliation')
+dat <- dat %>% rename(numHours='Number of hours usually work a week',maritalStatus='Marital status',generalHappiness='General happiness')
+dat$HighestYearCompleted = as.integer(dat$HighestYearCompleted)
+
+```
+```{r}
+library(tidyverse)
+library(ggplot2)
+AvgEducation <- dat %>% select(partyAffiliation,HighestYearCompleted) 
+AvgEducation1 <- AvgEducation  %>% dplyr::group_by(partyAffiliation) %>% dplyr::mutate(avgYears=mean(as.integer(HighestYearCompleted),na.rm=TRUE) ) 
+AvgEducation1 <- AvgEducation1[order(AvgEducation1$avgYears),] %>% select(partyAffiliation,avgYears) %>% distinct(partyAffiliation,avgYears) %>% drop_na(partyAffiliation)
+AvgEducation1 <- AvgEducation1[order(AvgEducation1$avgYears), ]
+ggplot(data = AvgEducation1, aes(x =reorder(partyAffiliation, avgYears) , y = avgYears)) +
+    theme(axis.text.x = element_text(angle = 90)) +
+  xlab("Party Affiliation")  +
+  geom_bar(stat = "identity")
+```
+Strong republicans tend to have the highest average of years of education. People affiliated with the Republican party tend to have more years of education compared to people affiliated with the Democratic Party.
+```{r}
+medianEducation <- dat %>% select(partyAffiliation,HighestYearCompleted,sex,maritalStatus) 
+medianEducation1 <- medianEducation  %>% dplyr::group_by(partyAffiliation) %>% dplyr::mutate(medianYears=median(as.integer(HighestYearCompleted),na.rm=TRUE) ) 
+medianEducation2 <-medianEducation1  %>% dplyr::mutate(betterEducated = (ifelse(HighestYearCompleted > medianYears, 1, 0)))
+medianEducation2
+```
+The above data frame includes a column that indicates if a given respondent is a "better educated" respondent.
+```{r}
+happySurvey <- dat %>% select(partyAffiliation,HighestYearCompleted,sex,maritalStatus,generalHappiness) 
+happySurvey <- happySurvey %>% dplyr::mutate(happyorunhappy= ifelse(generalHappiness == 'Very happy',1,
+                                                              ifelse(generalHappiness == 'Pretty happy',1,
+                                                              ifelse ( 1,0))))
+happySurvey2 <- happySurvey %>% dplyr::group_by(partyAffiliation,maritalStatus) %>% summarize(happycounts = mean(happyorunhappy))
+happySurvey2 <- happySurvey2 %>% filter(!is.na(happycounts))
+ggplot(data = happySurvey2, aes(x = maritalStatus, y = happycounts)) +
+  geom_bar(position="dodge",stat="identity") +
+  theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
+
+```
+People who are married tend to be the happiest, while separated and divorced people tend to be less happy.
+```{r}
+ggplot(data = happySurvey2, aes(x = maritalStatus, y = happycounts)) +
+  geom_bar(position="dodge",stat="identity") +
+  theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5)) +
+  facet_grid( . ~ partyAffiliation)
+```
+Married people still tend to be the happiest, regardless of political affiliation. 
+```{r}
+maritalEducation <- dat %>% select(HighestYearCompleted,maritalStatus) 
+maritalEducation1 <- maritalEducation  %>% dplyr::group_by(maritalStatus) %>% dplyr::mutate(avgYears=mean(as.integer(HighestYearCompleted),na.rm=TRUE) ) 
+
+ggplot(data = maritalEducation1, aes(x = reorder(maritalStatus, avgYears), y = avgYears)) +
+  geom_bar(position="dodge",stat="identity") +
+  theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
+```
+The never married people tend to have a better education than those who were married or divorced. A possible reason for this is choosing to pursue their education as opposed to getting into a relationship. Separated people tend to have less education, which might be influenced by personal or financial problems stemming from a poor education.
+
+```{r}
+#Sex and Party Affiliation #1
+sexAffiliation <- dat %>% select(sex,partyAffiliation) 
+sexAffiliation1 <- sexAffiliation  %>% dplyr::group_by(partyAffiliation,sex) %>% dplyr::summarize(numRows=n())  
+sexAffiliation1 <- sexAffiliation1 %>% filter(!is.na(partyAffiliation))
+ggplot(data = sexAffiliation1, aes(y = numRows, x = partyAffiliation,fill=sex)) +
+  geom_col(aes(fill=sex)) +
+  theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
+```
+We are trying to look at the relationship between party affiliation and the sex of respondents. Based on the graph above, we can see that there are more females than males that are affiliated with independent, not strong democrat, and strong democrat. For other political affiliations, they are relatively even in distribution.
+```{r}
+# Is the respondent set consistent across multiple years? #2
+responseCounts <- dat %>% filter (!is.na(sex)) %>% dplyr::group_by(`Gss year for this respondent`,sex) %>% dplyr::summarize(respCount=n())
+ggplot(data = responseCounts, aes(y = respCount, x = `Gss year for this respondent`,fill=sex)) +
+  geom_col() +
+  theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
+
+```
+The survey responses were taken each year between 1972 and 1991. After that, the responses were recorded once in 2 years with much larger population. The respondent mix of Male and Female seems to be consistent across years.
+
+You can also embed plots, for example:
+
+```{r , echo=FALSE}
+
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
